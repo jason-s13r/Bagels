@@ -58,8 +58,6 @@ uv tool install --python 3.13 bagels
 
 `uv` can also be installed via Homebrew, Cargo, Winget, pipx, and more. See the [installation guide](https://docs.astral.sh/uv/getting-started/installation/) for more information.
 
-Now you can run Posting via the command line:
-
 #### Windows:
 
 ```bash
@@ -72,20 +70,23 @@ uv tool install --python 3.13 bagels
 </details>
 
 <details>
+    <summary>By Brew</summary>
+
+    brew install bagels    
+
+</details>
+
+<details>
     <summary>By Pipx</summary>
 
-    ```bash
-    pipx install bagels
-    ```
+    pipx install bagels    
 
 </details>
 
 <details>
     <summary>By Conda</summary>
 
-    ```bash
     conda install -c conda-forge bagels
-    ```
 
 </details>
 

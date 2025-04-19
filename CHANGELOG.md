@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.8
+
+- Fixed: Balance not updating when adding records
+
 ## 0.3.7
 
 - New! New transfer modal now has autocomplete.

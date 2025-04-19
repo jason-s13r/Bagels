@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.7
+
+- New! New transfer modal now has autocomplete.
+- Fixed: Templates with similar names will now be selected correctly
+- Fixed: Crash when adding new account
+
 ## 0.3.6
 
 - Added ActualBudget migration

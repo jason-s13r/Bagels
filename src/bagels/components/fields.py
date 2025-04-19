@@ -61,10 +61,11 @@ class Field(Static):
         # self.screen.focus_next()
 
         # Find matching option and set held value
-        for item in self.field.options.items:
-            item_text = str(item.text or item.value)
-            selected_dropdown_text = str(event.item.main)
-            if item_text == selected_dropdown_text:
+        if event.index == -1:
+            return
+        for i, item in enumerate(self.field.options.items):
+            selected_dropdown_index = event.index
+            if i == selected_dropdown_index:
                 self.input.heldValue = item.value
                 break
 

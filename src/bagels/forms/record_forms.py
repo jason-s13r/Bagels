@@ -3,12 +3,12 @@ from datetime import datetime
 
 from rich.text import Text
 
+from bagels.forms.form import Form, FormField, Option, Options
 from bagels.managers.accounts import get_all_accounts_with_balance
 from bagels.managers.categories import get_all_categories_by_freq
 from bagels.managers.persons import get_all_persons
-from bagels.managers.record_templates import get_all_templates
+from bagels.managers.record_templates import get_record_templates
 from bagels.managers.records import get_record_by_id
-from bagels.forms.form import Form, FormField, Option, Options
 
 
 class RecordForm:
@@ -123,7 +123,7 @@ class RecordForm:
     # -------------- Helpers ------------- #
 
     def _populate_form_options(self):
-        templates = get_all_templates()
+        templates = get_record_templates()
         self.FORM.fields[0].options = Options(
             items=[
                 Option(

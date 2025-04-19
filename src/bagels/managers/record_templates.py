@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload, sessionmaker
+
 from bagels.models.database.app import db_engine
 from bagels.models.record_template import RecordTemplate
 
@@ -45,7 +46,41 @@ def get_all_templates():
         session.close()
 
 
-def get_template_by_id(recordtemplate_id):
+def get_record_templates():
+    session = Session()
+    try:
+        stmt = (
+            select(RecordTemplate)
+            .options(
+                joinedload(RecordTemplate.category),
+                joinedload(RecordTemplate.account),
+            )
+            .filter(RecordTemplate.isTransfer == False)  # noqa: E712
+            .order_by(RecordTemplate.order)
+        )
+        return session.scalars(stmt).all()
+    finally:
+        session.close()
+
+
+def get_transfer_templates():
+    session = Session()
+    try:
+        stmt = (
+            select(RecordTemplate)
+            .options(
+                joinedload(RecordTemplate.category),
+                joinedload(RecordTemplate.account),
+            )
+            .filter(RecordTemplate.isTransfer)
+            .order_by(RecordTemplate.order)
+        )
+        return session.scalars(stmt).all()
+    finally:
+        session.close()
+
+
+def get_template_by_id(recordtemplate_id) -> RecordTemplate:
     session = Session()
     try:
         select(RecordTemplate).options(

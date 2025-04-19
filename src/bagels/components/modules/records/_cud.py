@@ -258,13 +258,6 @@ class RecordCUD:
                         timeout=3,
                     )
                     self.page_parent.rebuild()
-            else:
-                self.app.notify(
-                    title="Discarded",
-                    message="Record not updated",
-                    severity="warning",
-                    timeout=3,
-                )
 
         self.app.push_screen(
             TransferModal(

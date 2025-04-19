@@ -112,6 +112,7 @@ class DropdownItem:
     is_create_option: bool = False
     create_option_text: str = ""
     highlight_ranges: Iterable[tuple[int, int]] | None = None
+    original_index: int | None = None
 
     def __post_init__(self):
         if isinstance(self.left_meta, str):
@@ -215,39 +216,46 @@ class AutoComplete(Widget):
         if self.dropdown.display and selected is not None:
             selected_value = selected.main.plain
             selected_is_create_option = selected.is_create_option
+
             if selected_is_create_option and self.create_action:
                 self.post_message(self.Created(item=selected, input=self.input))
-            elif completion_strategy == "replace":
-                self.input.value = ""
-                self.input.insert_text_at_cursor(selected_value)
-            elif completion_strategy == "insert":
-                self.input.insert_text_at_cursor(selected_value)
-            elif completion_strategy == "append":
-                old_value = self.input.value
-                new_value = old_value + selected_value
-                self.input.value = new_value
-                self.input.action_end()
             else:
-                new_state = completion_strategy(
-                    selected_value,
-                    InputState(
-                        value=self.input.value,
-                        cursor_position=self.input.cursor_position,
-                    ),
-                )
-                self.input.value = new_state.value
-                self.input.cursor_position = new_state.cursor_position
+                if completion_strategy == "replace":
+                    self.input.value = ""
+                    self.input.insert_text_at_cursor(selected_value)
+                elif completion_strategy == "insert":
+                    self.input.insert_text_at_cursor(selected_value)
+                elif completion_strategy == "append":
+                    old_value = self.input.value
+                    new_value = old_value + selected_value
+                    self.input.value = new_value
+                    self.input.action_end()
+                else:
+                    new_state = completion_strategy(
+                        selected_value,
+                        InputState(
+                            value=self.input.value,
+                            cursor_position=self.input.cursor_position,
+                        ),
+                    )
+                    self.input.value = new_state.value
+                    self.input.cursor_position = new_state.cursor_position
 
-            self.dropdown.display = False
-            self.post_message(
-                self.Selected(item=self.dropdown.selected_item, input=self.input)
-            )
+                self.dropdown.display = False
+                self.post_message(
+                    self.Selected(
+                        item=selected,
+                        input=self.input,
+                        index=selected.original_index,
+                    )
+                )
 
     class Selected(Message):
-        def __init__(self, item: DropdownItem, input: Input):
+        def __init__(self, item: DropdownItem, input: Input, index: int | None):
             super().__init__()
             self.item = item
             self.input = input
+            self.index = index
 
     class Created(Message):
         def __init__(self, item: DropdownItem, input: Input):
@@ -417,7 +425,7 @@ Dropdown .autocomplete--right-column {
             matches = self.items(input_state)
         else:
             matches = []
-            for item in self.items:
+            for index, item in enumerate(self.items):
                 # Casting to Text, since we convert to Text object in
                 # the __post_init__ of DropdownItem.
                 text = cast(Text, item.main)
@@ -428,6 +436,10 @@ Dropdown .autocomplete--right-column {
                             left_meta=cast(Text, item.left_meta).copy(),
                             main=cast(Text, item.main).copy(),
                             right_meta=cast(Text, item.right_meta).copy(),
+                            is_create_option=item.is_create_option,
+                            create_option_text=item.create_option_text,
+                            highlight_ranges=item.highlight_ranges,
+                            original_index=index,
                         )
                     )
 

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container
@@ -8,16 +10,15 @@ from textual.widgets import (
 from bagels.components.autocomplete import AutoComplete, Dropdown, DropdownItem
 from bagels.components.fields import Fields
 from bagels.config import CONFIG
-from bagels.managers.record_templates import get_template_by_id
-from bagels.modals.input import InputModal
-from bagels.managers.accounts import get_all_accounts_with_balance
-from bagels.managers.persons import create_person, get_all_persons
 from bagels.forms.form import Form, Option
 from bagels.forms.record_forms import RecordForm
+from bagels.managers.accounts import get_all_accounts_with_balance
+from bagels.managers.persons import create_person, get_all_persons
+from bagels.managers.record_templates import get_template_by_id
+from bagels.modals.base_widget import ModalContainer
+from bagels.modals.input import InputModal
 from bagels.utils.format import format_date_to_readable
 from bagels.utils.validation import validateForm
-from bagels.modals.base_widget import ModalContainer
-from datetime import datetime
 
 
 class RecordModal(InputModal):
@@ -139,7 +140,6 @@ class RecordModal(InputModal):
                 if not has_heldValue:
                     fieldWidget.value = str(getattr(template, field.key))
                 else:
-                    print(fieldWidget, field.key)
                     fieldWidget.heldValue = getattr(template, field.key)
                     if "Id" in field.key:
                         fieldWidget.value = str(

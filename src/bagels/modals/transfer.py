@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import override
 
 from textual import events
 from textual.app import ComposeResult
@@ -10,11 +11,13 @@ from textual.widgets import (
     ListView,
 )
 
+from bagels.components.autocomplete import AutoComplete
 from bagels.components.fields import Fields
+from bagels.forms.transfer_forms import TransferForm
 from bagels.managers.accounts import get_all_accounts_with_balance
-from bagels.utils.validation import validateForm
+from bagels.managers.record_templates import get_template_by_id
 from bagels.modals.base_widget import ModalContainer
-from bagels.forms.form import Form, FormField
+from bagels.utils.validation import validateForm
 
 
 class Accounts(ListView):
@@ -59,43 +62,19 @@ class TransferModal(ModalScreen):
     ):
         super().__init__(classes="modal-screen", *args, **kwargs)
         self.accounts = get_all_accounts_with_balance(get_hidden=True)
-        self.form = Form(
-            fields=[
-                FormField(
-                    title="Label",
-                    key="label",
-                    type="string",
-                    placeholder="Label",
-                    is_required=True,
-                    default_value=str(record.label) if record else "",
-                ),
-                FormField(
-                    title="Amount",
-                    key="amount",
-                    type="number",
-                    placeholder="0.00",
-                    min=0,
-                    is_required=True,
-                    default_value=str(record.amount) if record else "",
-                ),
-            ]
-        )
-        if not isTemplate:
-            self.form.fields.append(
-                FormField(
-                    title="Date",
-                    key="date",
-                    type="dateAutoDay",
-                    placeholder="dd (mm) (yy)",
-                    default_value=(
-                        record.date.strftime("%d") if record else defaultDate
-                    ),
-                )
-            )
+        if record:
+            self.form = TransferForm(isTemplate, defaultDate).get_filled_form(record)
+        else:
+            self.form = TransferForm(isTemplate, defaultDate).get_form()
         self.fromAccount = record.accountId if record else self.accounts[0].id
         self.toAccount = record.transferToAccountId if record else self.accounts[1].id
         self.title = title
         self.atAccountList = False
+
+    @override
+    def _on_mount(self, event: events.Mount) -> None:
+        self.rebuild()
+        return super()._on_mount(event)
 
     def on_descendant_focus(self, event: events.DescendantFocus):
         id = event.widget.id
@@ -120,12 +99,41 @@ class TransferModal(ModalScreen):
         elif event.key == "escape":
             self.dismiss(None)
 
+    def rebuild(self):
+        self.fromAccountsSelector = Accounts(
+            self.accounts, initial_id=self.fromAccount, type="from"
+        )
+        self.toAccountsSelector = Accounts(
+            self.accounts, initial_id=self.toAccount, type="to"
+        )
+        transfer_modal = self.query_one("#transfer-modal")
+        container = Container(
+            self.fromAccountsSelector,
+            Label(">>>", classes="arrow"),
+            self.toAccountsSelector,
+            classes="transfer-accounts-container",
+        )
+        last_container = transfer_modal.query(".transfer-accounts-container")
+        if len(last_container) > 0:
+            last_container[0].remove()
+        transfer_modal.mount(container, after=0)
+
     def on_list_view_highlighted(self, event: ListView.Highlighted):
         accountId = event.item.id.split("-")[1]
         if event.list_view.id == "from-accounts":
             self.fromAccount = accountId
         elif event.list_view.id == "to-accounts":
             self.toAccount = accountId
+
+    def on_auto_complete_selected(self, event: AutoComplete.Selected) -> None:
+        if "field-label" in event.input.id:
+            template = get_template_by_id(event.input.heldValue)
+            fieldWidget = self.query_one("#field-amount")
+            fieldWidget.value = str(getattr(template, "amount"))
+
+            self.fromAccount = template.accountId
+            self.toAccount = template.transferToAccountId
+            self.rebuild()
 
     def action_submit(self):
         resultForm, errors, isValid = validateForm(self, self.form)
@@ -154,12 +162,6 @@ class TransferModal(ModalScreen):
         yield ModalContainer(
             Container(
                 Fields(self.form),
-                Container(
-                    Accounts(self.accounts, initial_id=self.fromAccount, type="from"),
-                    Label(">>>", classes="arrow"),
-                    Accounts(self.accounts, initial_id=self.toAccount, type="to"),
-                    classes="transfer-accounts-container",
-                ),
                 Label(id="transfer-error"),
                 id="transfer-modal",
             ),

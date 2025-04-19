@@ -70,6 +70,7 @@ class AccountMode(ScrollableContainer):
         )
         self.page_parent = parent
         self.account_form = AccountForm()
+        self.accounts_with_balance = get_all_accounts_with_balance()
 
     def on_mount(self) -> None:
         self.rebuild()
@@ -79,7 +80,8 @@ class AccountMode(ScrollableContainer):
 
     def rebuild(self) -> None:
         net_balance = 0
-        for account in get_all_accounts_with_balance():
+        # print all children of accounts list
+        for account in self.accounts_with_balance:
             net_balance += account.balance
             # Update balance
             self.query_one(f"#account-{account.id}-balance").update(
@@ -171,6 +173,7 @@ class AccountMode(ScrollableContainer):
                     severity="information",
                     timeout=3,
                 )
+                self.accounts_with_balance = get_all_accounts_with_balance()
                 self.page_parent.rebuild()
 
         if id:
@@ -221,9 +224,8 @@ class AccountMode(ScrollableContainer):
     # --------------- View --------------- #
 
     def compose(self) -> ComposeResult:
-        accounts = get_all_accounts_with_balance()
-        if not accounts:
+        if not self.accounts_with_balance:
             yield EmptyIndicator("No accounts")
             return
 
-        yield AccountsList(accounts)
+        yield AccountsList(self.accounts_with_balance)

@@ -83,6 +83,9 @@ class AccountMode(ScrollableContainer):
         # print all children of accounts list
         for account in self.accounts_with_balance:
             net_balance += account.balance
+            test_mounted = self.query(f"#account-{account.id}-container")
+            if len(test_mounted) == 0:
+                continue
             # Update balance
             self.query_one(f"#account-{account.id}-balance").update(
                 str(account.balance)

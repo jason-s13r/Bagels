@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.9
+
+- Relaxed dependency restrictions
+
 ## 0.3.8
 
 - Fixed: Balance not updating when adding records

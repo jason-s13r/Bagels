@@ -123,5 +123,35 @@ def locate(thing_to_locate: str) -> None:
         print(database_file())
 
 
+@cli.group("import")
+@click.option(
+    "--at",
+    type=click.Path(exists=True, file_okay=True, dir_okay=True, path_type=Path),
+    help="Specify the path.",
+)
+def importers(at: Path | None) -> None:
+    """Import data from various sources."""
+
+    if at:
+        set_custom_root(at)
+
+    from bagels.models.database.app import init_db
+
+    init_db()
+
+
+try:
+    from bagels.importers.akahu.command import akahu_importer
+
+    importers.add_command(akahu_importer)
+except ImportError as e:
+    click.echo(
+        click.style(
+            e,
+            fg="red",
+        )
+    )
+    pass
+
 if __name__ == "__main__":
     cli()

@@ -340,7 +340,7 @@ class DataTable(ScrollView, Generic[CellType], can_focus=True):
     }
 
     DataTable > .datatable--cursor {
-        background: $secondary 20%;
+        background: $accent 20%;
     }
 
     DataTable > .datatable--fixed-cursor {

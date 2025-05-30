@@ -6,6 +6,7 @@ from typing import List
 from akahu.models.transaction import (
     Transaction as AkahuApiTransaction,
     PendingTransaction as AkahuApiPendingTransaction,
+    TransactionType as AkahuApiTransactionType,
 )
 from akahu.models.account import Account as AkahuApiAccount
 from akahu.client import Client as AkahuClient
@@ -169,7 +170,12 @@ class AkahuImporter(BagelsImporter):
             change.updatedAt = change.category.updatedAt
         session.commit()
 
-    def import_transactions(self, session, transactions: List[AkahuApiTransaction]):
+    def import_transactions(
+        self,
+        session,
+        transactions: List[AkahuApiTransaction],
+        formattedAccountDict: dict = None,
+    ):
         importIds = [tx.id for tx in transactions]
         query_existing = session.query(AkahuTransaction).filter(
             AkahuTransaction.akahuId.in_(importIds)
@@ -177,19 +183,24 @@ class AkahuImporter(BagelsImporter):
         existing = {e.akahuId: e for e in query_existing.all()}
         changes = [
             (
-                existing[tx.id].update_from_akahu(tx)
+                existing[tx.id].update_from_akahu(tx, formattedAccountDict)
                 if tx.id in existing
-                else AkahuTransaction.create_from_akahu(tx)
+                else AkahuTransaction.create_from_akahu(tx, formattedAccountDict)
             )
             for tx in transactions
         ]
         session.add_all(changes)
         session.commit()
 
-    def sync_transactions(self, session, uncategorized: Category):
+    def sync_transactions(self, session, uncategorized: Category, transfer: Category):
         transactions = session.query(AkahuTransaction).all()
         for change in transactions:
-            category = change.category.category if change.category else uncategorized
+            category = uncategorized
+            if change.isTransfer:
+                category = transfer
+            elif change.category:
+                category = change.category.category
+
             if change.record is None:
                 change.record = Record(
                     accountId=change.account.accountId,
@@ -198,6 +209,10 @@ class AkahuImporter(BagelsImporter):
                     date=change.date,
                     amount=change.amount,
                     isIncome=change.isIncome,
+                    isTransfer=change.isTransfer,
+                    transferToAccountId=change.transferToAccount.accountId
+                    if change.transferToAccount
+                    else None,
                     tags=change.tags,
                 )
                 session.add(change.record)
@@ -212,6 +227,12 @@ class AkahuImporter(BagelsImporter):
                 change.record.date = change.date
                 change.record.amount = change.amount
                 change.record.isIncome = change.isIncome
+                change.record.isTransfer = change.isTransfer
+                change.record.transferToAccountId = (
+                    change.transferToAccount.accountId
+                    if change.transferToAccount
+                    else None
+                )
                 change.record.tags = change.tags
             change.record.updatedAt = datetime.now()
             change.updatedAt = change.record.updatedAt
@@ -251,6 +272,57 @@ class AkahuImporter(BagelsImporter):
             session.add(record)
         session.commit()
 
+    def fix_transfers(self, session, transactions: List[AkahuApiPendingTransaction]):
+        transfer_types = [
+            AkahuApiTransactionType.PAYMENT,
+            AkahuApiTransactionType.TRANSFER,
+            AkahuApiTransactionType.STANDING_ORDER,
+            AkahuApiTransactionType.INTEREST,
+            AkahuApiTransactionType.CREDIT_CARD,
+            AkahuApiTransactionType.LOAN,
+        ]
+
+        targets = list(filter(lambda tx: tx.amount >= 0, transactions))
+        targets = list(filter(lambda tx: tx.type in transfer_types, targets))
+
+        sources = list(filter(lambda tx: tx.amount < 0, transactions))
+        sources = list(filter(lambda tx: tx.type in transfer_types, sources))
+
+        def matcher(target: AkahuApiTransaction, candidates: List[AkahuApiTransaction]):
+            candidates = list(
+                filter(lambda tx: tx.account != target.account, candidates)
+            )
+            candidates = list(filter(lambda tx: tx.date == target.date, candidates))
+            candidates = list(filter(lambda tx: tx.type == target.type, candidates))
+            candidates = list(
+                filter(lambda tx: (tx.amount + target.amount) == 0, candidates)
+            )
+            candidate = next(iter(candidates), None)
+            return candidate
+
+        matched = [(target, matcher(target, sources)) for target in targets]
+
+        for target, source in matched:
+            if source is None:
+                continue
+            tx = session.query(AkahuTransaction).filter_by(akahuId=target.id).first()
+            rx = session.query(AkahuTransaction).filter_by(akahuId=source.id).first()
+
+            if tx is None or rx is None:
+                continue
+
+            tx.isTransfer = True
+            tx.isIncome = False
+            tx.transferToAkahuAccountId = source.account
+            session.add(tx)
+
+            rx.isTransfer = True
+            rx.isIncome = False
+            rx.transferToAkahuAccountId = target.account
+            session.add(rx)
+
+        session.commit()
+
     def run(self, start: datetime | None, end: datetime | None):
         with self._session() as session:
             try:
@@ -276,7 +348,22 @@ class AkahuImporter(BagelsImporter):
                     )
                     session.add(pending)
                     session.commit()
+                transfer = session.query(Category).filter_by(name="Transfer").first()
+                if not transfer:
+                    transfer = Category(
+                        name="Transfer",
+                        nature=Nature.WANT,
+                        color="#808080",
+                        parentCategoryId=uncategorized.id,
+                    )
+                    session.add(transfer)
+                    session.commit()
                 accounts = self._akahu.accounts.list()
+                formattedAccountDict = {
+                    account.formatted_account: account.id
+                    for account in accounts
+                    if account.formatted_account is not None
+                }
                 self.import_accounts(session, accounts)
                 chunks = []
                 with click.progressbar(
@@ -295,15 +382,21 @@ class AkahuImporter(BagelsImporter):
                     for transactions in progress:
                         self.import_groups(session, transactions)
                         self.import_categories(session, transactions)
-                        self.import_transactions(session, transactions)
+                        self.import_transactions(
+                            session, transactions, formattedAccountDict
+                        )
                         progress.update(1)
                     progress.finish()
+
+                flattened = list(itertools.chain.from_iterable(chunks))
+                click.echo("Pairing transfers...")
+                self.fix_transfers(session, flattened)
 
                 click.echo("Fetching pending transactions...")
                 pendingTransactions = self._akahu.transactions.pending.list()
 
                 with click.progressbar(
-                    length=5, label="Migrating into Bagels"
+                    length=6, label="Migrating into Bagels"
                 ) as progress:
                     progress.label = "Syncing accounts"
                     self.sync_accounts(session)
@@ -315,7 +408,7 @@ class AkahuImporter(BagelsImporter):
                     self.sync_categories(session)
                     progress.update(1)
                     progress.label = "Syncing transactions"
-                    self.sync_transactions(session, uncategorized)
+                    self.sync_transactions(session, uncategorized, transfer)
                     progress.update(1)
                     progress.label = "Syncing pending transactions"
                     self.sync_pending_transactions(

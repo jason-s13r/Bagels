@@ -9,7 +9,7 @@ from bagels.models.database.app import Base
 class AkahuCategory(Base):
     __tablename__ = "akahu_category"
     akahuId = Column(String, primary_key=True)
-    akahuGroupId = Column(Integer, ForeignKey("akahu_group.akahuId"), nullable=True)
+    akahuGroupId = Column(String, ForeignKey("akahu_group.akahuId"), nullable=True)
     categoryId = Column(Integer, ForeignKey("category.id"), nullable=True)
     createdAt = Column(DateTime, nullable=False, default=datetime.now())
     updatedAt = Column(DateTime, nullable=False, default=datetime.now())

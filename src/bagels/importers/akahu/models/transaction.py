@@ -18,11 +18,12 @@ from bagels.models.database.app import Base
 class AkahuTransaction(Base):
     __tablename__ = "akahu_transaction"
     akahuId = Column(String, primary_key=True)
-    akahuAccountId = Column(
-        Integer, ForeignKey("akahu_account.akahuId"), nullable=False
-    )
+    akahuAccountId = Column(String, ForeignKey("akahu_account.akahuId"), nullable=False)
     akahuCategoryId = Column(
-        Integer, ForeignKey("akahu_category.akahuId"), nullable=True
+        String, ForeignKey("akahu_category.akahuId"), nullable=True
+    )
+    transferToAkahuAccountId = Column(
+        String, ForeignKey("akahu_account.akahuId"), nullable=True
     )
     recordId = Column(Integer, ForeignKey("record.id"), nullable=True)
     createdAt = Column(DateTime, nullable=False, default=datetime.now())
@@ -32,14 +33,27 @@ class AkahuTransaction(Base):
     date = Column(DateTime, nullable=False, default=datetime.now)
     isIncome = Column(Boolean, nullable=False, default=False)
     isInProgress = Column(Boolean, nullable=False, default=False)
+    isTransfer = Column(
+        Boolean,
+        CheckConstraint("(isTransfer = FALSE) OR (isIncome = FALSE)"),
+        nullable=False,
+        default=False,
+    )
+    transferToAccountId = Column(Integer, ForeignKey("account.id"), nullable=True)
     tags = Column(String, nullable=True)
 
     account = relationship("AkahuAccount", foreign_keys=[akahuAccountId])
+    transferToAccount = relationship(
+        "AkahuAccount", foreign_keys=[transferToAkahuAccountId]
+    )
     category = relationship("AkahuCategory", foreign_keys=[akahuCategoryId])
     record = relationship("Record", foreign_keys=[recordId])
 
     @staticmethod
-    def create_from_akahu(transaction: models.Transaction) -> "AkahuTransaction":
+    def create_from_akahu(
+        transaction: models.Transaction, formattedAccountDict: dict = None
+    ) -> "AkahuTransaction":
+        transferToAkahuAccountId = None
         categoryId = transaction.category.id if transaction.category else None
         accountId = transaction.account
         merchant = transaction.merchant.name if transaction.merchant else None
@@ -51,7 +65,12 @@ class AkahuTransaction(Base):
         tags = {"type": transaction.type, "imported": "akahu"}
         if transaction.merchant:
             tags.update({"merchant": transaction.merchant.name})
+
         if transaction.meta:
+            if transaction.meta.other_account:
+                transferToAkahuAccountId = formattedAccountDict.get(
+                    transaction.meta.other_account, None
+                )
             card = transaction.meta.card_suffix
             reference = " ".join(
                 [
@@ -71,6 +90,8 @@ class AkahuTransaction(Base):
                 if fxA is not None and fxR is not None and rxC is not None:
                     tags.update({"conversion": f"{rxC} {fxA} @ {fxR}"})
         tagsStr = ", ".join([f"{k}: {v}" for k, v in tags.items()])
+        isTransfer = transferToAkahuAccountId is not None
+        isIncome = not isTransfer and transaction.amount > 0
         return AkahuTransaction(
             akahuId=transaction.id,
             akahuCategoryId=categoryId,
@@ -78,12 +99,16 @@ class AkahuTransaction(Base):
             label=label,
             date=transaction.date,
             amount=math.fabs(transaction.amount),
-            isIncome=transaction.amount > 0,
+            isIncome=isIncome,
+            isTransfer=isTransfer,
+            transferToAkahuAccountId=transferToAkahuAccountId,
             tags=tagsStr,
         )
 
-    def update_from_akahu(self, category: models.Transaction) -> "AkahuTransaction":
-        changes = AkahuTransaction.create_from_akahu(category)
+    def update_from_akahu(
+        self, transaction: models.Transaction, formattedAccountDict: dict = None
+    ) -> "AkahuTransaction":
+        changes = AkahuTransaction.create_from_akahu(transaction, formattedAccountDict)
         self.akahuCategoryId = changes.akahuCategoryId
         self.akahuAccountId = changes.akahuAccountId
         self.label = changes.label
@@ -91,4 +116,6 @@ class AkahuTransaction(Base):
         self.amount = changes.amount
         self.isIncome = changes.isIncome
         self.tags = changes.tags
+        self.transferToAkahuAccountId = changes.transferToAkahuAccountId
+        self.isTransfer = changes.isTransfer
         return self

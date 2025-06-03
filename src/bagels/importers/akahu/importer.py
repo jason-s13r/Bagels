@@ -1,3 +1,4 @@
+import difflib
 import math
 import itertools
 from datetime import datetime
@@ -16,6 +17,7 @@ from bagels.locations import database_file
 from bagels.models.account import Account
 from bagels.models.category import Category, Nature
 from bagels.models.record import Record
+from bagels.models.split import Split
 from .models.account import AkahuAccount
 from .models.group import AkahuGroup
 from .models.category import AkahuCategory
@@ -210,15 +212,17 @@ class AkahuImporter(BagelsImporter):
                     amount=change.amount,
                     isIncome=change.isIncome,
                     isTransfer=change.isTransfer,
-                    transferToAccountId=change.transferToAccount.accountId
-                    if change.transferToAccount
-                    else None,
+                    transferToAccountId=(
+                        change.transferToAccount.accountId
+                        if change.transferToAccount
+                        else None
+                    ),
                     tags=change.tags,
                 )
                 session.add(change.record)
                 session.flush()
-            elif change.updatedAt < change.record.updatedAt:
-                continue
+            # elif change.updatedAt < change.record.updatedAt:
+            #     continue
             else:
                 change.record.accountId = change.account.accountId
                 if category.id:
@@ -272,32 +276,129 @@ class AkahuImporter(BagelsImporter):
             session.add(record)
         session.commit()
 
-    def fix_transfers(self, session, transactions: List[AkahuApiPendingTransaction]):
-        transfer_types = [
-            AkahuApiTransactionType.PAYMENT,
-            AkahuApiTransactionType.TRANSFER,
-            AkahuApiTransactionType.STANDING_ORDER,
-            AkahuApiTransactionType.INTEREST,
-            AkahuApiTransactionType.CREDIT_CARD,
-            AkahuApiTransactionType.LOAN,
-        ]
-
+    def fix_conversions(
+        self,
+        session,
+        transactions: List[AkahuApiTransaction],
+        transfer: Category,
+        uncategorized: Category,
+    ):
+        paired = []
+        transactions = sorted(transactions, key=lambda tx: math.fabs(tx.amount))
+        transactions = list(
+            filter(lambda tx: tx.description.startswith("Converted"), transactions)
+        )
         targets = list(filter(lambda tx: tx.amount >= 0, transactions))
-        targets = list(filter(lambda tx: tx.type in transfer_types, targets))
-
         sources = list(filter(lambda tx: tx.amount < 0, transactions))
-        sources = list(filter(lambda tx: tx.type in transfer_types, sources))
 
         def matcher(target: AkahuApiTransaction, candidates: List[AkahuApiTransaction]):
             candidates = list(
                 filter(lambda tx: tx.account != target.account, candidates)
             )
             candidates = list(filter(lambda tx: tx.date == target.date, candidates))
-            candidates = list(filter(lambda tx: tx.type == target.type, candidates))
+            candidates = list(filter(lambda tx: tx.id not in paired, candidates))
+
+            candidates = list(
+                filter(
+                    lambda tx: (
+                        tx.meta
+                        and tx.meta.conversion
+                        and target.description.startswith(
+                            f"Converted {tx.meta.conversion.amount:,.2f} {tx.meta.conversion.currency} to {target.amount:,.2f}"
+                        )
+                    )
+                    or (
+                        tx.meta
+                        and tx.meta.conversion
+                        and target.meta
+                        and target.meta.conversion
+                        and target.description.startswith(
+                            f"Converted {target.meta.conversion.amount:,.2f} {target.meta.conversion.currency} from {target.meta.conversion.currency} balance to {tx.meta.conversion.amount:,.2f} {tx.meta.conversion.currency}"
+                        )
+                    ),
+                    candidates,
+                )
+            )
+
+            candidate = next(iter(candidates), None)
+
+            if candidate:
+                paired.append(candidate.id)
+
+            return candidate
+
+        matched = [(target, matcher(target, sources)) for target in targets]
+
+        for target, source in matched:
+            if source is None:
+                continue
+            tx = session.query(AkahuTransaction).filter_by(akahuId=target.id).first()
+            rx = session.query(AkahuTransaction).filter_by(akahuId=source.id).first()
+
+            if tx is None or rx is None:
+                continue
+
+            if tx.record.categoryId is None or tx.record.categoryId == uncategorized.id:
+                tx.record.categoryId = transfer.id
+                session.add(tx)
+
+            if rx.record.categoryId is None or rx.record.categoryId == uncategorized.id:
+                rx.record.categoryId = transfer.id
+                session.add(rx)
+
+        session.commit()
+
+    def fix_transfers(self, session, transactions: List[AkahuApiPendingTransaction]):
+        paired = []
+        opposites = {
+            AkahuApiTransactionType.DEBIT: AkahuApiTransactionType.CREDIT,
+            AkahuApiTransactionType.CREDIT: AkahuApiTransactionType.DEBIT,
+        }
+
+        transactions = sorted(transactions, key=lambda tx: math.fabs(tx.amount))
+        targets = list(filter(lambda tx: tx.amount >= 0, transactions))
+        sources = list(filter(lambda tx: tx.amount < 0, transactions))
+
+        def matcher(target: AkahuApiTransaction, candidates: List[AkahuApiTransaction]):
+            candidates = list(
+                filter(lambda tx: tx.account != target.account, candidates)
+            )
+            candidates = list(filter(lambda tx: tx.date == target.date, candidates))
             candidates = list(
                 filter(lambda tx: (tx.amount + target.amount) == 0, candidates)
             )
+            candidates = list(filter(lambda tx: tx.id not in paired, candidates))
+
+            candidates = sorted(
+                candidates,
+                key=lambda tx: tx.type == target.type
+                or tx.type == opposites[target.type],
+                reverse=True,
+            )
+
+            candidates = sorted(
+                candidates,
+                key=lambda tx: difflib.SequenceMatcher(
+                    None, tx.description.replace(" TO ", " FROM "), target.description
+                ).ratio(),
+                reverse=True,
+            )
+
+            if len(candidates) > 0:
+                print(f"Found {len(candidates)} candidates:")
+                print(
+                    f"    Target: {target.type} {target.amount} ({target.description})"
+                )
+                for candidate in candidates:
+                    print(
+                        f"    Candidate: {candidate.type} {candidate.amount} ({candidate.description}) {candidate.id}"
+                    )
+
             candidate = next(iter(candidates), None)
+
+            if candidate:
+                paired.append(candidate.id)
+
             return candidate
 
         matched = [(target, matcher(target, sources)) for target in targets]
@@ -322,6 +423,88 @@ class AkahuImporter(BagelsImporter):
             session.add(rx)
 
         session.commit()
+
+    def get_account_balance(self, session, accountId):
+        # Initialize balance
+        balance = (
+            session.query(Account)
+            .filter(Account.id == accountId)
+            .first()
+            .beginningBalance
+        )
+
+        # Get all records for this account
+        records = session.query(Record).filter(Record.accountId == accountId).all()
+
+        # Calculate balance from records
+        for record in records:
+            if record.isTransfer:
+                # For transfers, subtract full amount (transfers out)
+                balance -= record.amount
+            elif record.isIncome:
+                # For income records, add full amount
+                balance += record.amount
+            else:
+                # For expense records, subtract full amount
+                balance -= record.amount
+
+        # Get all records where this account is the transfer destination
+        transfer_to_records = (
+            session.query(Record)
+            .filter(Record.transferToAccountId == accountId, Record.isTransfer == True)  # noqa
+            .all()
+        )
+
+        # Add transfers into this account
+        for record in transfer_to_records:
+            balance += record.amount
+
+        # Get all splits where this account is specified
+        splits = session.query(Split).filter(Split.accountId == accountId).all()
+
+        # Add paid splits (they represent money coming into this account)
+        for split in splits:
+            if split.isPaid:
+                if split.record.isIncome:
+                    balance -= split.amount
+                else:
+                    balance += split.amount
+
+        return balance
+
+    def fix_account_balance(self, session, accounts: List[AkahuApiAccount]):
+        balances = {account.id: account.balance.current for account in accounts}
+        akahuIds = balances.keys()
+        akahuAccounts: List[AkahuAccount] = (
+            session.query(AkahuAccount).filter(AkahuAccount.akahuId.in_(akahuIds)).all()
+        )
+        idMap = {
+            akahuAccount.accountId: akahuAccount.akahuId
+            for akahuAccount in akahuAccounts
+        }
+        beginningBalances = {
+            akahuAccount.accountId: akahuAccount.account.beginningBalance
+            for akahuAccount in akahuAccounts
+        }
+
+        print("")
+        for accountId, akahuId in idMap.items():
+            beginning = beginningBalances.get(accountId)
+            expected = balances.get(akahuId, 0)
+            computed = self.get_account_balance(session, accountId)
+            rounded_computed = round(computed, 4)
+            starting = expected - rounded_computed + beginning
+            rounded_starting = round(starting, 4)
+            if rounded_starting != 0 and starting != beginning:
+                print(f"will fix incorrect beginning balance for account: {accountId}")
+                print(f"    balance from Akahu is {expected}")
+                print(f"    computed balance is {rounded_computed}")
+                print(
+                    f"    will set beginning balance to {rounded_starting} (was {beginning})"
+                )
+                account = session.get(Account, accountId)
+                account.beginningBalance = rounded_starting
+                session.commit()
 
     def run(self, start: datetime | None, end: datetime | None):
         with self._session() as session:
@@ -391,6 +574,7 @@ class AkahuImporter(BagelsImporter):
                 flattened = list(itertools.chain.from_iterable(chunks))
                 click.echo("Pairing transfers...")
                 self.fix_transfers(session, flattened)
+                self.fix_conversions(session, flattened, transfer, uncategorized)
 
                 click.echo("Fetching pending transactions...")
                 pendingTransactions = self._akahu.transactions.pending.list()
@@ -414,7 +598,10 @@ class AkahuImporter(BagelsImporter):
                     self.sync_pending_transactions(
                         session, pendingTransactions, pending
                     )
-                    progress.update(5)
+                    progress.update(1)
+                    progress.label = "Fix account balances"
+                    self.fix_account_balance(session, accounts)
+                    progress.update(6)
                     progress.finish()
                 print("Import completed successfully!")
             except Exception as e:

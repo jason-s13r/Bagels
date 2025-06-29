@@ -90,6 +90,13 @@ uv tool install --python 3.13 bagels
 
 </details>
 
+<details>
+    <summary>By X-CMD</summary>
+
+    x install bagels
+
+</details>
+
 ## 🥯 Usage:
 
 ```bash

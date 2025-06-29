@@ -17,7 +17,6 @@ from bagels.managers.persons import create_person, get_all_persons
 from bagels.managers.record_templates import get_template_by_id
 from bagels.modals.base_widget import ModalContainer
 from bagels.modals.input import InputModal
-from bagels.utils.format import format_date_to_readable
 from bagels.utils.validation import validateForm
 
 
@@ -44,7 +43,10 @@ class RecordModal(InputModal):
             priority=True,
         ),
         Binding(
-            "shift+enter", "submit_and_template", "Submit & Template", priority=True
+            CONFIG.hotkeys.record_modal.submit_and_template,
+            "submit_and_template",
+            "Submit & Template",
+            priority=True,
         ),
     ]
 
@@ -132,13 +134,22 @@ class RecordModal(InputModal):
         event.input.heldValue = person.id
 
     def on_auto_complete_selected(self, event: AutoComplete.Selected) -> None:
-        if "field-label" in event.input.id:
-            template = get_template_by_id(event.input.heldValue)
-            for field in self.form.fields[1:-1]:
-                has_heldValue = field.type in ["autocomplete", "hidden"]
+        if (
+            "field-label" in event.input.id
+        ):  # if the autocompleted field is the label field
+            template = get_template_by_id(
+                event.input.heldValue
+            )  # get the template specified
+            for field in self.form.fields[
+                1:-1
+            ]:  # skip the label field and the date field
+                has_heldValue = field.type in ["autocomplete"]
                 fieldWidget = self.query_one(f"#field-{field.key}")
                 if not has_heldValue:
-                    fieldWidget.value = str(getattr(template, field.key))
+                    if field.type == "boolean":
+                        fieldWidget.value = getattr(template, field.key)
+                    else:
+                        fieldWidget.value = str(getattr(template, field.key))
                 else:
                     fieldWidget.heldValue = getattr(template, field.key)
                     if "Id" in field.key:
@@ -147,12 +158,12 @@ class RecordModal(InputModal):
                                 getattr(template, field.key.replace("Id", "")), "name"
                             )
                         )
-            date = format_date_to_readable(self.form.fields[-1].default_value)
-            type = (
-                "Income" if self.query_one("#field-isIncome").heldValue else "Expense"
+            self.app.notify(
+                title="Success",
+                message="Template applied",
+                severity="information",
+                timeout=3,
             )
-            account_name = self.query_one("#field-accountId").value
-            super().set_title(f"New {type} on {account_name} for {date}")
 
     # ------------- Callbacks ------------ #
 
@@ -192,7 +203,6 @@ class RecordModal(InputModal):
             self.splitCount -= 1
 
     def action_submit_and_template(self) -> None:
-        """Handle shift+enter submission"""
         self.shift_pressed = True
         self.action_submit()
 

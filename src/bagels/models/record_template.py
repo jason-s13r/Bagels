@@ -1,18 +1,22 @@
 from datetime import datetime
+
 from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
     Column,
     DateTime,
+    Float,
+    ForeignKey,
     Integer,
     String,
-    Float,
-    Boolean,
-    ForeignKey,
-    CheckConstraint,
     event,
     func,
     select,
 )
 from sqlalchemy.orm import relationship, validates
+
+from bagels.config import CONFIG
+
 from .database.db import Base
 
 
@@ -62,6 +66,12 @@ class RecordTemplate(Base):
         if order is None:
             raise ValueError("Order cannot be null.")
         return order
+
+    @validates("amount")
+    def validate_amount(self, key, value):
+        if value is not None:
+            return round(value, CONFIG.defaults.round_decimals)
+        return value
 
 
 @event.listens_for(RecordTemplate, "before_insert")

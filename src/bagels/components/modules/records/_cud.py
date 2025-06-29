@@ -20,7 +20,6 @@ from bagels.modals.confirmation import ConfirmationModal
 from bagels.modals.input import InputModal
 from bagels.modals.record import RecordModal
 from bagels.modals.transfer import TransferModal
-from bagels.utils.format import format_date_to_readable
 
 
 class RecordCUD:
@@ -44,13 +43,10 @@ class RecordCUD:
                     )
                     self.page_parent.rebuild(templates=result["createTemplate"])
 
-        date = format_date_to_readable(self.page_parent.mode["date"])
-        account_name = self.page_parent.mode["accountId"]["default_value_text"]
-        type = "Income" if self.page_parent.mode["isIncome"] else "Expense"
         self.app.push_screen(
             RecordModal(
-                f"New {type} on {account_name} for {date}",
-                form=RecordForm().get_form(self.page_parent.mode),
+                "New Record",
+                form=RecordForm().get_form(),
                 splitForm=Form(),
                 date=self.page_parent.mode["date"],
             ),

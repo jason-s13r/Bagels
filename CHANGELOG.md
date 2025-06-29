@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.10
+
+- Configurable hotkey for submit and template (Now defaults to ctrl+enter for better terminal support)
+- Expose additional fields in record creation modal
+
 ## 0.3.9
 
 - Relaxed dependency restrictions

@@ -42,6 +42,7 @@ class RecordModalHotkeys(BaseModel):
     new_split: str = "ctrl+a"
     new_paid_split: str = "ctrl+s"
     delete_last_split: str = "ctrl+d"
+    submit_and_template: str = "ctrl+enter"
 
 
 class CategoriesHotkeys(BaseModel):

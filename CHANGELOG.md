@@ -6,6 +6,7 @@
 - Changed default record modal hotkeys
 - Expose additional fields in record creation modal
 - Amount rounding validation
+- Changed default theme to tokyo-night
 
 ## 0.3.9
 
@@ -18,6 +19,7 @@
 ## 0.3.7
 
 - New! New transfer modal now has autocomplete.
+- Include item name in delete confirmation messages
 - Fixed: Templates with similar names will now be selected correctly
 - Fixed: Crash when adding new account
 

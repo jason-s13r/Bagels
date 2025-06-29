@@ -5,6 +5,7 @@
 - Configurable hotkey for submit and template
 - Changed default record modal hotkeys
 - Expose additional fields in record creation modal
+- Amount rounding validation
 
 ## 0.3.9
 

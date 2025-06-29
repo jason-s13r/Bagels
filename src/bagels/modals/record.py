@@ -203,7 +203,6 @@ class RecordModal(InputModal):
             self.splitCount -= 1
 
     def action_submit_and_template(self) -> None:
-        """Handle ctrl+enter submission"""
         self.shift_pressed = True
         self.action_submit()
 

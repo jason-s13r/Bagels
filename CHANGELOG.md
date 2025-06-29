@@ -2,7 +2,8 @@
 
 ## 0.3.10
 
-- Configurable hotkey for submit and template (Now defaults to ctrl+enter for better terminal support)
+- Configurable hotkey for submit and template
+- Changed default record modal hotkeys
 - Expose additional fields in record creation modal
 
 ## 0.3.9

@@ -40,9 +40,9 @@ class HomeHotkeys(BaseModel):
 
 class RecordModalHotkeys(BaseModel):
     new_split: str = "ctrl+a"
-    new_paid_split: str = "ctrl+s"
+    new_paid_split: str = "ctrl+shift+a"
     delete_last_split: str = "ctrl+d"
-    submit_and_template: str = "ctrl+enter"
+    submit_and_template: str = "ctrl+t"
 
 
 class CategoriesHotkeys(BaseModel):
@@ -102,7 +102,7 @@ class BudgetingStates(BaseModel):
 
 
 class State(BaseModel):
-    theme: str = "dark"
+    theme: str = "tokyo-night"
     check_for_updates: bool = True
     footer_visibility: bool = True
     budgeting: BudgetingStates = BudgetingStates()

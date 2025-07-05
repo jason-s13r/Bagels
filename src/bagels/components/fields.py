@@ -40,6 +40,7 @@ class Field(Static):
 
         # Create base input widget
         self.input = Input(placeholder=field.placeholder or "", id=f"field-{field.key}")
+        self.id = f"field-{field.key}-controller"
 
         # Configure input based on field type
         match self.field.type:
@@ -56,18 +57,26 @@ class Field(Static):
             case type_ if type_ != "boolean":
                 self.input.value = field.default_value or ""
 
+    def handle_select_index(self, index: int) -> None:
+        """Handler for (externally) selecting an autocomplete option"""
+        # Find matching option and set held value
+        if index == -1:
+            return
+        # Get the selected item directly using the index
+        selected_item = self.field.options.items[index]
+        self.input.heldValue = selected_item.value
+
+        # Update postfix display for category fields
+        postfix_display = (
+            f" {selected_item.postfix}"
+            if selected_item.postfix and self.field.key == "categoryId"
+            else ""
+        )
+        self.query_one("#autocomplete-postfix-display-label").update(postfix_display)
+
     def on_auto_complete_selected(self, event: AutoComplete.Selected) -> None:
         """Handle autocomplete selection"""
-        # self.screen.focus_next()
-
-        # Find matching option and set held value
-        if event.index == -1:
-            return
-        for i, item in enumerate(self.field.options.items):
-            selected_dropdown_index = event.index
-            if i == selected_dropdown_index:
-                self.input.heldValue = item.value
-                break
+        self.handle_select_index(event.index)
 
     def on_input_changed(self, event: Input.Changed):
         if self.field.type == "number":
@@ -110,13 +119,19 @@ class Field(Static):
                     show_when_empty=self.field.autocomplete_selector,
                 )
 
-                yield AutoComplete(
-                    self.input,
-                    dropdown,
-                    classes="field-autocomplete",
-                    create_action=self.field.create_action,
-                    backspace_clears=self.field.autocomplete_selector,
-                )
+                with Container(classes="autocomplete-container"):
+                    yield AutoComplete(
+                        self.input,
+                        dropdown,
+                        classes="field-autocomplete",
+                        create_action=self.field.create_action,
+                        backspace_clears=self.field.autocomplete_selector,
+                    )
+                    yield Label(
+                        "",
+                        classes="autocomplete-postfix-display-label",
+                        id="autocomplete-postfix-display-label",
+                    )
 
             elif self.field.type == "boolean":
                 with Container(classes="switch-group"):

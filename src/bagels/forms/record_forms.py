@@ -275,7 +275,6 @@ class RecordForm:
         form = copy.deepcopy(self.FORM)
 
         if not default_values:  # should never happen
-            print("No default values provided for record form")
             return form
 
         for field in form.fields:

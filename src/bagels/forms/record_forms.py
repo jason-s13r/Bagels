@@ -264,16 +264,28 @@ class RecordForm:
 
         return filled_form, filled_splits
 
-    def get_form(self, hidden_fields: dict = {}):
+    # date: datetime
+    # isIncome: bool
+    # accountId: {
+    #     default_value: None,
+    #     default_value_text: "Select account",
+    # }
+    def get_form(self, default_values: dict = {}):  # TODO: properly type everything
         """Return the base form with default values"""
         form = copy.deepcopy(self.FORM)
         for field in form.fields:
-            key = field.key
-            if key in hidden_fields:
-                field.type = "hidden"
-                if isinstance(hidden_fields[key], dict):
-                    field.default_value = hidden_fields[key]["default_value"]
-                    field.default_value_text = hidden_fields[key]["default_value_text"]
-                else:
-                    field.default_value = hidden_fields[key]
+            match field.key:
+                case "date":
+                    value = default_values["date"]
+                    if value.month == datetime.now().month:
+                        field.default_value = value.strftime("%d")
+                    else:
+                        field.default_value = value.strftime("%d %m %y")
+                case "isIncome":
+                    field.default_value = default_values["isIncome"]
+                case "accountId":
+                    field.default_value = default_values["accountId"]["default_value"]
+                    field.default_value_text = default_values["accountId"][
+                        "default_value_text"
+                    ]
         return form

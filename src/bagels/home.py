@@ -16,6 +16,17 @@ from bagels.managers.accounts import get_accounts_count, get_all_accounts
 from bagels.managers.categories import get_categories_count
 from bagels.utils.format import format_period_to_readable
 
+# class HomeModeDefaultT(TypedDict):
+#     default_value: None
+#     default_value_text: str
+
+
+# class HomeModeT(TypedDict):
+#     date: datetime
+#     isIncome: bool
+#     accountId: HomeModeDefaultT
+# TODO: properly type everything
+
 
 class Home(Static):
     filter = {

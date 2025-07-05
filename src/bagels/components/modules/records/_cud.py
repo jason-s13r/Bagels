@@ -46,7 +46,7 @@ class RecordCUD:
         self.app.push_screen(
             RecordModal(
                 "New Record",
-                form=RecordForm().get_form(),
+                form=RecordForm().get_form(default_values=self.page_parent.mode),
                 splitForm=Form(),
                 date=self.page_parent.mode["date"],
             ),

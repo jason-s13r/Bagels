@@ -5,6 +5,7 @@ from textual.widgets import Input, Label, Static, Switch
 
 from bagels.components.autocomplete import AutoComplete, Dropdown, DropdownItem
 from bagels.forms.form import Form, FormField
+from bagels.managers.categories import get_category_by_id
 from bagels.utils.format import parse_formula_expression
 
 _RESTRICT_TYPES = {
@@ -82,7 +83,12 @@ class Field(Static):
             if selected_item.postfix and self.field.key == "categoryId"
             else ""
         )
-        self.query_one("#autocomplete-postfix-display-label").update(postfix_display)
+        category = get_category_by_id(selected_item.value)
+        if not category:
+            return
+        self.autocomplete_postfix_display_label.update(
+            f"[{category.parentCategory.color}]{postfix_display}[/]"
+        )
 
     def on_auto_complete_selected(self, event: AutoComplete.Selected) -> None:
         """Handle autocomplete selection"""

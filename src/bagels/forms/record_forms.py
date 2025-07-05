@@ -270,9 +270,14 @@ class RecordForm:
     #     default_value: None,
     #     default_value_text: "Select account",
     # }
-    def get_form(self, default_values: dict = {}):  # TODO: properly type everything
+    def get_form(self, default_values: dict):  # TODO: properly type everything
         """Return the base form with default values"""
         form = copy.deepcopy(self.FORM)
+
+        if not default_values:  # should never happen
+            print("No default values provided for record form")
+            return form
+
         for field in form.fields:
             match field.key:
                 case "date":

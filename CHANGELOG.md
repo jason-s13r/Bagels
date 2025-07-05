@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.11
+
+- Shows parent category name in record modal
+- Updated config documentation on income
+- Fixed: Record modal not using dynamic mode values
+- Fixed: Autocomplete validation for options with same text
+
 ## 0.3.10
 
 - Configurable hotkey for submit and template

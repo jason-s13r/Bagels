@@ -77,12 +77,12 @@ class Field(Static):
         selected_item = self.field.options.items[index]
         self.input.heldValue = selected_item.value
 
+        if self.field.key != "categoryId":
+            self.autocomplete_postfix_display_label.update("")
+            return
+
         # Update postfix display for category fields
-        postfix_display = (
-            f" {selected_item.postfix}"
-            if selected_item.postfix and self.field.key == "categoryId"
-            else ""
-        )
+        postfix_display = f" {selected_item.postfix}"
         category = get_category_by_id(selected_item.value)
         if not category:
             return

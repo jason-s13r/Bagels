@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Tuple, Dict, Any
+from typing import Any, Dict, Tuple
 
 from textual.widget import Widget
 
@@ -75,15 +75,16 @@ def _validate_autocomplete(
         return True, None
 
     if field.options.items[0].text:
-        # Find matching option
-        field_input_value = None
-        for item in field.options.items:
-            if item.text == value:
-                field_input_value = str(item.value)
-                break
-        # Verify selected value matches entered text
-        if field_input_value != str(held_value):
-            print(field_input_value, held_value)
+        # Checks if selected option but user modified input text
+        # Find all options with matching text
+        matching_items = [item for item in field.options.items if item.text == value]
+        if not matching_items:
+            return False, "Invalid selection"
+        # Check if any of them have the held_value
+        if any(str(item.value) == str(held_value) for item in matching_items):
+            return True, None
+        else:
+            print(f"No matching value for text '{value}' and held_value '{held_value}'")
             return False, "Invalid selection"
     else:
         # if can't find the held_value inside the values, it's invalid

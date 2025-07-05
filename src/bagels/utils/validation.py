@@ -79,12 +79,14 @@ def _validate_autocomplete(
         # Find all options with matching text
         matching_items = [item for item in field.options.items if item.text == value]
         if not matching_items:
+            # Entered text does not match any option
             return False, "Invalid selection"
         # Check if any of them have the held_value
         if any(str(item.value) == str(held_value) for item in matching_items):
             return True, None
         else:
-            print(f"No matching value for text '{value}' and held_value '{held_value}'")
+            # Entered text is not tabbed (selected) or editted a tabbed option
+            # Even if entered text matches an item, if it is not tabbed, it is invalid
             return False, "Invalid selection"
     else:
         # if can't find the held_value inside the values, it's invalid

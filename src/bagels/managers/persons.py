@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, column, desc, func, select
 from sqlalchemy.orm import contains_eager, sessionmaker
 
 from bagels.managers.utils import get_operator_amount, get_start_end_of_period
@@ -151,7 +151,7 @@ def get_persons_with_net_due() -> list[Person]:
             )
             .select_from(Person)
             .where(Person.deletedAt.is_(None))
-            .order_by(Person.name)
+            .order_by(desc(func.abs(column("due"))), Person.name)
         )
 
         result = session.execute(stmt).all()

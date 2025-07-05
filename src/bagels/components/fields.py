@@ -40,6 +40,11 @@ class Field(Static):
 
         # Create base input widget
         self.input = Input(placeholder=field.placeholder or "", id=f"field-{field.key}")
+        self.autocomplete_postfix_display_label = Label(
+            "",
+            classes="autocomplete-postfix-display-label",
+            id="autocomplete-postfix-display-label",
+        )
         self.id = f"field-{field.key}-controller"
 
         # Configure input based on field type
@@ -51,8 +56,13 @@ class Field(Static):
                 self.input.value = field.default_value or ""
 
             case "autocomplete":
-                self.input.heldValue = field.default_value or ""
-                self.input.value = field.default_value_text or field.default_value or ""
+                default_value = field.default_value or ""
+                self.input.heldValue = default_value
+                self.input.value = field.default_value_text or default_value or ""
+                for index, option in enumerate(field.options.items):
+                    if option.value == default_value:
+                        self.handle_select_index(index)
+                        break
 
             case type_ if type_ != "boolean":
                 self.input.value = field.default_value or ""
@@ -127,11 +137,7 @@ class Field(Static):
                         create_action=self.field.create_action,
                         backspace_clears=self.field.autocomplete_selector,
                     )
-                    yield Label(
-                        "",
-                        classes="autocomplete-postfix-display-label",
-                        id="autocomplete-postfix-display-label",
-                    )
+                    yield self.autocomplete_postfix_display_label
 
             elif self.field.type == "boolean":
                 with Container(classes="switch-group"):

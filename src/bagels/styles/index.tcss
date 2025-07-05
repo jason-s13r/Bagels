@@ -201,6 +201,14 @@ Tabs {
     padding-left: 1;
   }
 
+  .autocomplete-container {
+    position: relative;
+    .autocomplete-postfix-display-label {
+      position: absolute;
+      dock: right;
+    }
+  }
+
   .switch-group {
     layout: horizontal;
 

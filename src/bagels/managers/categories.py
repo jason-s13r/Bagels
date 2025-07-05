@@ -85,6 +85,7 @@ def get_category_by_id(category_id):
             select(Category)
             .filter_by(id=category_id)
             .filter(Category.deletedAt.is_(None))
+            .options(joinedload(Category.parentCategory))
         )
         return session.scalars(stmt).first()
     finally:

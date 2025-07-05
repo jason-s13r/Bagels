@@ -8,7 +8,7 @@ from textual.widgets import (
 )
 
 from bagels.components.autocomplete import AutoComplete, Dropdown, DropdownItem
-from bagels.components.fields import Fields
+from bagels.components.fields import Field, Fields
 from bagels.config import CONFIG
 from bagels.forms.form import Form, Option
 from bagels.forms.record_forms import RecordForm
@@ -158,6 +158,15 @@ class RecordModal(InputModal):
                                 getattr(template, field.key.replace("Id", "")), "name"
                             )
                         )
+                    # Call handle select index to properly handle other updates
+                    controller: Field = self.query_one(f"#field-{field.key}-controller")
+                    # Find the matching option index for the template value
+                    template_value = getattr(template, field.key)
+                    for index, option in enumerate(field.options.items):
+                        if option.value == template_value:
+                            controller.handle_select_index(index)
+                            break
+
             self.app.notify(
                 title="Success",
                 message="Template applied",

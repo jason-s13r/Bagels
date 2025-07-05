@@ -72,15 +72,11 @@ class Symbols(BaseModel):
 
 class BudgetingStates(BaseModel):
     # ---------- Income policies --------- #
-    income_assess_metric: Literal["periodIncome", "fallback"] = (
-        "periodIncome"  # use the current period's income, or if less than threshold, use the past period's income
-    )
-    income_assess_threshold: float = (
-        100  # if income less than this, we assume has no income
-    )
-    income_assess_fallback: float = (
-        3500  # if income less than threshold, we use this as the income
-    )
+    # FLEXIBILITY - periodIncome: use the current period's income, or if less than income_assess_threshold, use the past period's income. Uses income_assess_fallback if resulting income is less than it
+    # SIMPLICITY - fallback: uses income_assess_fallback if income this period is less than it
+    income_assess_metric: Literal["periodIncome", "fallback"] = "periodIncome"
+    income_assess_threshold: float = 100
+    income_assess_fallback: float = 3500  # Minimum income
     # -------- Savings budgetting -------- #
     savings_assess_metric: Literal["percentagePeriodIncome", "setAmount"] = (
         "percentagePeriodIncome"

@@ -77,18 +77,17 @@ class Field(Static):
         selected_item = self.field.options.items[index]
         self.input.heldValue = selected_item.value
 
-        if self.field.key != "categoryId":
-            self.autocomplete_postfix_display_label.update("")
-            return
+        if self.field.key == "categoryId":
+            category = get_category_by_id(selected_item.value)
+            if category and category.parentCategory:
+                # Update postfix display for category fields
+                postfix_display = f" {selected_item.postfix}"
+                self.autocomplete_postfix_display_label.update(
+                    f"[{category.parentCategory.color}]{postfix_display}[/]"
+                )
+                return
 
-        # Update postfix display for category fields
-        postfix_display = f" {selected_item.postfix}"
-        category = get_category_by_id(selected_item.value)
-        if not category:
-            return
-        self.autocomplete_postfix_display_label.update(
-            f"[{category.parentCategory.color}]{postfix_display}[/]"
-        )
+        self.autocomplete_postfix_display_label.update("")
 
     def on_auto_complete_selected(self, event: AutoComplete.Selected) -> None:
         """Handle autocomplete selection"""

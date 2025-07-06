@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.12
+
+- Sort people in manager page by net due
+- Fixed: Crash when selecting parent category in record modal
+
 ## 0.3.11
 
 - Shows parent category name in record modal

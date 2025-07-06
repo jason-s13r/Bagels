@@ -5,7 +5,8 @@ Powerful expense tracker that lives in your terminal.
 ![PyPI - Version](https://img.shields.io/pypi/v/bagels?style=for-the-badge)
 ![GitHub License](https://img.shields.io/github/license/EnhancedJax/Bagels?style=for-the-badge)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/Bagels?style=for-the-badge)
-<a title="This tool is Tool of The Week on Terminal Trove, The $HOME of all things in the terminal" href="https://terminaltrove.com/bagels"><img src="https://cdn.terminaltrove.com/media/badges/tool_of_the_week/svg/terminal_trove_tool_of_the_week_black_on_white_bg.svg" alt="Terminal Trove Tool of The Week" height="28" /></a>
+
+<!-- <a title="This tool is Tool of The Week on Terminal Trove, The $HOME of all things in the terminal" href="https://terminaltrove.com/bagels"><img src="https://cdn.terminaltrove.com/media/badges/tool_of_the_week/svg/terminal_trove_tool_of_the_week_black_on_white_bg.svg" alt="Terminal Trove Tool of The Week" height="28" /></a> -->
 
 ![Bagels](./public/screenshots/thumb1.png)
 ![Bagels](./public/screenshots/thumb2.png)
@@ -72,14 +73,14 @@ uv tool install --python 3.13 bagels
 <details>
     <summary>By Brew</summary>
 
-    brew install bagels    
+    brew install bagels
 
 </details>
 
 <details>
     <summary>By Pipx</summary>
 
-    pipx install bagels    
+    pipx install bagels
 
 </details>
 

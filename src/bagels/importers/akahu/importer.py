@@ -221,11 +221,9 @@ class AkahuImporter(BagelsImporter):
                 )
                 session.add(change.record)
                 session.flush()
-            # elif change.updatedAt < change.record.updatedAt:
-            #     continue
             else:
                 change.record.accountId = change.account.accountId
-                if category.id:
+                if change.updatedAt > change.record.updatedAt and category.id:
                     change.record.categoryId = category.id
                 change.record.label = change.label
                 change.record.date = change.date
@@ -338,13 +336,21 @@ class AkahuImporter(BagelsImporter):
             if tx is None or rx is None:
                 continue
 
-            if tx.record.categoryId is None or tx.record.categoryId == uncategorized.id:
-                tx.record.categoryId = transfer.id
-                session.add(tx)
+            if tx.record is not None:
+                if (
+                    tx.record.categoryId is None
+                    or tx.record.categoryId == uncategorized.id
+                ):
+                    tx.record.categoryId = transfer.id
+                    session.add(tx)
 
-            if rx.record.categoryId is None or rx.record.categoryId == uncategorized.id:
-                rx.record.categoryId = transfer.id
-                session.add(rx)
+            if rx.record is not None:
+                if (
+                    rx.record.categoryId is None
+                    or rx.record.categoryId == uncategorized.id
+                ):
+                    rx.record.categoryId = transfer.id
+                    session.add(rx)
 
         session.commit()
 
@@ -527,8 +533,12 @@ class AkahuImporter(BagelsImporter):
                         name="Pending",
                         nature=Nature.WANT,
                         color="#808080",
-                        parentCategoryId=uncategorized.id,
+                        parentCategoryId=None,
                     )
+                    session.add(pending)
+                    session.commit()
+                else:
+                    pending.parentCategoryId = None
                     session.add(pending)
                     session.commit()
                 transfer = session.query(Category).filter_by(name="Transfer").first()
@@ -537,8 +547,12 @@ class AkahuImporter(BagelsImporter):
                         name="Transfer",
                         nature=Nature.WANT,
                         color="#808080",
-                        parentCategoryId=uncategorized.id,
+                        parentCategoryId=None,
                     )
+                    session.add(transfer)
+                    session.commit()
+                else:
+                    transfer.parentCategoryId = None
                     session.add(transfer)
                     session.commit()
                 accounts = self._akahu.accounts.list()

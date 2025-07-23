@@ -135,9 +135,47 @@ def importers(at: Path | None) -> None:
     if at:
         set_custom_root(at)
 
-    from bagels.models.database.app import init_db
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        transient=True,
+    ) as progress:
+        task = progress.add_task(f"Loading configuration from '{at}'...", total=3)
 
-    init_db()
+        from bagels.config import load_config
+
+        load_config()
+
+        from bagels.config import CONFIG
+
+        if CONFIG.state.check_for_updates:
+            progress.update(task, advance=1, description="Checking for updates...")
+
+            if needs_update():
+                new = get_pypi_version()
+                cur = get_current_version()
+                click.echo(
+                    click.style(
+                        f"New version available ({cur} -> {new})! Update with:",
+                        fg="yellow",
+                    )
+                )
+                click.echo(click.style("```uv tool upgrade bagels```", fg="cyan"))
+                click.echo(
+                    click.style(
+                        "You can disable this check in-app using the command palette.",
+                        fg="bright_black",
+                    )
+                )
+                sleep(2)
+
+        progress.update(task, advance=1, description="Initializing database...")
+
+        from bagels.models.database.app import init_db
+
+        init_db()
 
 
 try:
